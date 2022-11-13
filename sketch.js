@@ -2,15 +2,16 @@ var fft, song, duration
 var particles = [];
 const band = 64;
 const spacing = 20;
+const cursorDiameter = 5;
 
 function preload() {
   // song = loadSound('songs/song.m4a');
   // song = loadSound('songs/song2.m4a')
   // song = loadSound('songs/song2(2).m4a');
   // song = loadSound('songs/boomerang.mp3');
-  song = loadSound('songs/song3.m4a');
+  // song = loadSound('songs/song3.m4a');
   // song = loadSound('songs/1962.m4a');
-  // song = loadSound('songs/1830.m4a');
+  song = loadSound('songs/1830.m4a');
 }
 
 function setup() {
@@ -104,13 +105,13 @@ function draw() {
 
   let songCurrentTime = song.currentTime();
   let x = map(songCurrentTime, 0, duration, spacing, width - spacing);
-  circle(x, spacing, 5);
+  circle(x, spacing, cursorDiameter);
 
   let t = `${formatTime(songCurrentTime)} / ${formatTime(duration)}`;
   fill(255);
   noStroke();
   textSize(height / 50);
-  text(t, (width - textWidth(t)) * 0.5, spacing + textAscent() + 5);
+  text(t, (width - textWidth(t)) * 0.5, spacing + textAscent() + cursorDiameter);
   pop();
 }
 
@@ -127,6 +128,22 @@ function formatTime(seconds) {
   let s = Math.floor(seconds - m * 60);
   if (s < 10) s = `0${s}`;
   return `${m}:${s}`;
+}
+
+function mouseDragged() {
+  // return handleDrag();
+}
+
+function touchMoved() {
+  return handleDrag();
+}
+
+function handleDrag() {
+  let cursorPos = map(song.currentTime(), 0, duration, spacing, width - spacing);
+  if (mouseX > spacing && mouseX < width - spacing) {
+    song.jump(map(mouseX, spacing, width - spacing, 0, duration));
+  }
+  return false;
 }
 
 class Particle {
