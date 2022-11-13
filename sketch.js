@@ -8,8 +8,8 @@ function preload() {
   // song = loadSound('songs/song2.m4a')
   // song = loadSound('songs/song2(2).m4a');
   // song = loadSound('songs/boomerang.mp3');
-  // song = loadSound('songs/song3.m4a');
-  song = loadSound('songs/1962.m4a');
+  song = loadSound('songs/song3.m4a');
+  // song = loadSound('songs/1962.m4a');
   // song = loadSound('songs/1830.m4a');
 }
 
@@ -110,7 +110,7 @@ function draw() {
   fill(255);
   noStroke();
   textSize(height / 50);
-  text(t, (width - textWidth(t)) * 0.5, spacing + textAscent() + 3);
+  text(t, (width - textWidth(t)) * 0.5, spacing + textAscent() + 5);
   pop();
 }
 
