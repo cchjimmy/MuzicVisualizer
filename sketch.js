@@ -1,17 +1,17 @@
-var fft, song, duration
+var fft, song, duration;
 var particles = [];
 const band = 64;
 const spacing = 20;
 const cursorDiameter = 5;
 
 function preload() {
-  // song = loadSound('songs/song.m4a');
+  song = loadSound('songs/song.m4a');
   // song = loadSound('songs/song2.m4a')
   // song = loadSound('songs/song2(2).m4a');
   // song = loadSound('songs/boomerang.mp3');
   // song = loadSound('songs/song3.m4a');
   // song = loadSound('songs/1962.m4a');
-  song = loadSound('songs/1830.m4a');
+  // song = loadSound('songs/1830.m4a');
 }
 
 function setup() {
@@ -23,6 +23,67 @@ function setup() {
   for (let i = 0; i < 300; i++) {
     particles.push(new Particle());
   }
+
+  // Get elements
+  const canvas = document.querySelector('canvas');
+  const recordBtn = document.querySelector('button');
+  const video = document.querySelector('video');
+  video.controls = true;
+  video.width = width;
+  video.height = height;
+
+  // Get audio context
+  const audioCtx = getAudioContext();
+  const audioDist = audioCtx.createMediaStreamDestination();
+  const audioStream = audioDist.stream;
+
+  // Connects song output to audio destination
+  song.connect(audioDist);
+  
+  // credit: https://medium.com/@amatewasu/how-to-record-a-canvas-element-d4d0826d3591
+  // Creates video stream from canvas
+  const videoStream = canvas.captureStream();
+
+  // Adds audio track to video stream
+  videoStream.addTrack(audioStream.getAudioTracks()[0]);
+
+  // Record the stream
+  const mediaRecorder = new MediaRecorder(videoStream);
+
+  var chunks = [];
+  var videoURL = '';
+
+  // Push data into chunks when available
+  mediaRecorder.onstart = () => {
+    mediaRecorder.ondataavailable = (e) => {
+      chunks.push(e.data);
+    }
+  }
+
+  // Convert raw data to video format
+  mediaRecorder.onstop = () => {
+    var blob = new Blob(chunks, { type: 'video/mp4' });
+    chunks = [];
+    videoURL = URL.createObjectURL(blob);
+
+    // Display video on video element
+    video.src = videoURL;
+  }
+
+  recordBtn.onclick = () => {
+    let innerText = recordBtn.innerText;
+    if (innerText == 'Record') {
+      mediaRecorder.start();
+      recordBtn.innerText = 'Stop';
+      return;
+    }
+
+    mediaRecorder.stop();
+    recordBtn.innerText = 'Record';
+
+    URL.revokeObjectURL(videoURL);
+  }
+
 }
 
 function draw() {
