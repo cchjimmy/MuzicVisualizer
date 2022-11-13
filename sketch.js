@@ -31,6 +31,7 @@ function setup() {
   const audioStream = audioDist.stream;
 
   createFileInput((file) => {
+    if (song) song.stop();
     song = loadSound(file, () => {
       duration = song.duration();
 
