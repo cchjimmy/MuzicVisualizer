@@ -4,21 +4,10 @@ const band = 64;
 const spacing = 20;
 const cursorDiameter = 5;
 
-function preload() {
-  song = loadSound('songs/song.m4a');
-  // song = loadSound('songs/song2.m4a')
-  // song = loadSound('songs/song2(2).m4a');
-  // song = loadSound('songs/boomerang.mp3');
-  // song = loadSound('songs/song3.m4a');
-  // song = loadSound('songs/1962.m4a');
-  // song = loadSound('songs/1830.m4a');
-}
-
 function setup() {
   createCanvas(400, 400).mouseClicked(togglePlay);
   angleMode(DEGREES);
   fft = new p5.FFT();
-  duration = song.duration();
 
   for (let i = 0; i < 300; i++) {
     particles.push(new Particle());
@@ -32,17 +21,23 @@ function setup() {
   video.width = width;
   video.height = height;
 
+  // credit: https://medium.com/@amatewasu/how-to-record-a-canvas-element-d4d0826d3591
+  // Creates video stream from canvas
+  const videoStream = canvas.captureStream();
+
   // Get audio context
   const audioCtx = getAudioContext();
   const audioDist = audioCtx.createMediaStreamDestination();
   const audioStream = audioDist.stream;
 
-  // Connects song output to audio destination
-  song.connect(audioDist);
-  
-  // credit: https://medium.com/@amatewasu/how-to-record-a-canvas-element-d4d0826d3591
-  // Creates video stream from canvas
-  const videoStream = canvas.captureStream();
+  createFileInput((file) => {
+    song = loadSound(file, () => {
+      duration = song.duration();
+
+      // Connects song output to audio destination
+      song.connect(audioDist);
+    });
+  }).position(0, 0);
 
   // Adds audio track to video stream
   videoStream.addTrack(audioStream.getAudioTracks()[0]);
@@ -83,10 +78,11 @@ function setup() {
 
     URL.revokeObjectURL(videoURL);
   }
-
 }
 
 function draw() {
+  if (!song) return;
+
   background(0);
   var amp = fft.getEnergy(20, 200); // 0 - 255
   var spectrum = fft.analyze();
@@ -177,11 +173,12 @@ function draw() {
 }
 
 function togglePlay() {
+  if (!song) return;
   if (song.isPlaying()) {
     song.pause();
-  } else {
-    song.loop();
+    return;
   }
+  song.loop();
 }
 
 function formatTime(seconds) {
@@ -192,18 +189,17 @@ function formatTime(seconds) {
 }
 
 function mouseDragged() {
-  return handleDrag();
+  handleDrag();
 }
 
 function touchMoved() {
-  return handleDrag();
+  handleDrag();
 }
 
 function handleDrag() {
-  if (mouseX > spacing && mouseX < width - spacing) {
+  if (song && mouseX > spacing && mouseX < width - spacing) {
     song.jump(map(mouseX, spacing, width - spacing, 0, duration));
   }
-  return false;
 }
 
 class Particle {
