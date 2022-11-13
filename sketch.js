@@ -15,7 +15,7 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(windowWidth, windowWidth).mouseClicked(togglePlay);
+  createCanvas(400, 400).mouseClicked(togglePlay);
   angleMode(DEGREES);
   fft = new p5.FFT();
   duration = song.duration();
