@@ -131,7 +131,7 @@ function formatTime(seconds) {
 }
 
 function mouseDragged() {
-  // return handleDrag();
+  return handleDrag();
 }
 
 function touchMoved() {
@@ -139,7 +139,6 @@ function touchMoved() {
 }
 
 function handleDrag() {
-  let cursorPos = map(song.currentTime(), 0, duration, spacing, width - spacing);
   if (mouseX > spacing && mouseX < width - spacing) {
     song.jump(map(mouseX, spacing, width - spacing, 0, duration));
   }
