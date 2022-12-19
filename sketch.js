@@ -1,4 +1,4 @@
-var fft, song, duration, lowHzInput, highHzInput, amplitudeInput, vWidth, vHeight;
+var fft, song, duration, lowHz, highHz, amplitudeInput, backgroundColor, particlesColor;
 var particles = [];
 const band = 64;
 const spacing = 20;
@@ -14,17 +14,65 @@ function setup() {
   }
 
   // Get elements
-  vWidth = document.getElementById('visualizerWidth');
-  vHeight = document.getElementById('visualizerHeight');
-  amplitudeInput = document.getElementById('amplitudeInput');
-  lowHzInput = document.getElementById('lowHzInput');
-  highHzInput = document.getElementById('highHzInput');
   const canvas = document.querySelector('canvas');
   const recordBtn = document.querySelector('button');
   const video = document.querySelector('video');
   video.controls = true;
-  video.width = width;
-  video.height = height;
+  video.width = canvas.width;
+  video.height = canvas.height;
+
+  let inputs = document.querySelectorAll('input');
+  for (let i = 0; i < inputs.length; i++) {
+    let input = inputs[i];
+    let id = input.id;
+    switch (id) {
+      case 'visualizerWidth':
+        resizeCanvas(input.value, height);
+        video.width = input.value;
+        input.onchange = () => {
+          resizeCanvas(input.value, height);
+          video.width = input.value;
+        }
+        break;
+      case 'visualizerHeight':
+        resizeCanvas(width, input.value);
+        video.height = input.value;
+        input.onchange = () => {
+          resizeCanvas(width, input.value);
+          video.height = input.value;
+        }
+        break;
+      case 'backgroundColorInput':
+        backgroundColor = input.value;
+        input.onchange = () => {
+          backgroundColor = input.value;
+        }
+        break;
+      case 'particlesColorInput':
+        particlesColor = input.value;
+        input.onchange = () => {
+          particlesColor = input.value;
+        }
+        break;
+      case 'lowHzInput':
+        lowHz = parseFloat(input.value);
+        input.onchange = () => {
+          lowHz = parseFloat(input.value);
+        }
+        break;
+      case 'highHzInput':
+        highHz = parseFloat(input.value);
+        input.onchange = () => {
+          highHz = parseFloat(input.value);
+        }
+        break;
+      case 'amplitudeInput':
+        amplitudeInput = parseFloat(input.value);
+        break;
+      default:
+        break;
+    }
+  }
 
   // credit: https://medium.com/@amatewasu/how-to-record-a-canvas-element-d4d0826d3591
   // Creates video stream from canvas
@@ -34,15 +82,6 @@ function setup() {
   const audioCtx = getAudioContext();
   const audioDist = audioCtx.createMediaStreamDestination();
   const audioStream = audioDist.stream;
-
-  vWidth.onchange = resizeVisualizer;
-  vHeight.onchange = resizeVisualizer;
-
-  function resizeVisualizer() {
-    resizeCanvas(parseInt(vWidth.value), parseInt(vHeight.value));
-    video.width = width;
-    video.height = height;
-  }
 
   createFileInput((file) => {
     if (song) song.stop();
@@ -96,10 +135,8 @@ function setup() {
 }
 
 function draw() {
-  if (!song) return;
-
-  background(0);
-  var amp = fft.getEnergy(parseFloat(lowHzInput.value), parseFloat(highHzInput.value));
+  background(backgroundColor);
+  var amp = fft.getEnergy(parseFloat(lowHz), parseFloat(highHz));
   var spectrum = fft.analyze();
   var wave = fft.waveform();
 
@@ -110,13 +147,11 @@ function draw() {
   translate(width / 2, height / 2);
   for (let i = 0; i < particles.length; i++) {
     let particle = particles[i];
-    particle.update(amp > parseFloat(amplitudeInput.value));
-    particle.show();
+    particle.update(amp > amplitudeInput);
+    particle.show(particlesColor);
 
     if (particle.edges()) {
-      particle.pos = p5.Vector.random2D().mult(width / 4);
-      particle.vel = createVector(0, 0);
-      particle.acc = particle.pos.copy().mult(random(0.0001, 0.00001));
+      particle.randomize();
     }
   }
   pop();
@@ -125,7 +160,7 @@ function draw() {
   push();
   noStroke();
   fill(0, 255 - amp);
-  rect(0, 0, width, width);
+  rect(0, 0, width, height);
   pop();
 
   // Wave
@@ -171,6 +206,7 @@ function draw() {
   // }
   // pop();
 
+  if (!song) return;
   // Progress
   push();
   strokeWeight(1);
@@ -215,18 +251,21 @@ function touchMoved() {
 
 function handleDrag() {
   if (song && mouseX > spacing && mouseX < width - spacing && mouseY > 0 && mouseY < height) {
+    // Audio seeking
     song.jump(map(mouseX, spacing, width - spacing, 0, duration));
   }
 }
 
 class Particle {
   constructor() {
-    this.pos = p5.Vector.random2D().mult(width / 4);
-    this.vel = createVector(0, 0);
-    this.acc = this.pos.copy().mult(random(0.0001, 0.00001));
+    this.pos;
+    this.vel;
+    this.acc;
     this.angularSpeed = random() * 2;
     this.rotation = 0;
     this.width = random(5, 10);
+
+    this.randomize();
   }
 
   update(cond) {
@@ -246,10 +285,16 @@ class Particle {
     return false;
   }
 
-  show() {
+  randomize() {
+    this.pos = p5.Vector.random2D().mult(Math.min(width, height) / 4);
+    this.vel = createVector(0, 0);
+    this.acc = this.pos.copy().mult(random(0.0001, 0.00001));
+  }
+
+  show(color) {
     push();
     noStroke();
-    fill(255);
+    fill(color);
     translate(this.pos.x, this.pos.y);
     rotate(this.rotation);
     rect(-this.width / 2, -this.width / 2, this.width);
