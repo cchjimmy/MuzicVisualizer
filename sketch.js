@@ -82,14 +82,14 @@ function setup() {
 
   recordBtn.onclick = () => {
     let innerText = recordBtn.innerText;
-    if (innerText == 'Record') {
+    if (innerText == 'Record visualizer') {
       mediaRecorder.start();
       recordBtn.innerText = 'Stop';
       return;
     }
 
     mediaRecorder.stop();
-    recordBtn.innerText = 'Record';
+    recordBtn.innerText = 'Record visualizer';
 
     URL.revokeObjectURL(videoURL);
   }
