@@ -18,6 +18,5 @@ MuzicVisualizer is a program written in JavaScript with the aid of some external
 * Only one visualization configuration available
 * Unable to control the increase in velocity of particles
 * Only one particle shape (square)
-* Unable to change visualizer size
 
 ![Visualizer](https://github.com/cchjimmy/MuzicVisualizer/blob/master/visualizer.png)
