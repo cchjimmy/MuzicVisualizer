@@ -1,4 +1,4 @@
-var fft, song, duration;
+var fft, song, duration, lowHzInput, highHzInput, amplitudeInput;
 var particles = [];
 const band = 64;
 const spacing = 20;
@@ -14,6 +14,9 @@ function setup() {
   }
 
   // Get elements
+  amplitudeInput = document.getElementById('amplitudeInput');
+  lowHzInput = document.getElementById('lowHzInput');
+  highHzInput = document.getElementById('highHzInput');
   const canvas = document.querySelector('canvas');
   const recordBtn = document.querySelector('button');
   const video = document.querySelector('video');
@@ -85,16 +88,18 @@ function draw() {
   if (!song) return;
 
   background(0);
-  var amp = fft.getEnergy(20, 200); // 0 - 255
+  var amp = fft.getEnergy(parseFloat(lowHzInput.value), parseFloat(highHzInput.value));
   var spectrum = fft.analyze();
   var wave = fft.waveform();
+
+  document.getElementById('energy').innerHTML = amp.toFixed(1);
 
   // Particles
   push();
   translate(width / 2, height / 2);
   for (let i = 0; i < particles.length; i++) {
     let particle = particles[i];
-    particle.update(amp > 200);
+    particle.update(amp > parseFloat(amplitudeInput.value));
     particle.show();
 
     if (particle.edges()) {
@@ -198,7 +203,7 @@ function touchMoved() {
 }
 
 function handleDrag() {
-  if (song && mouseX > spacing && mouseX < width - spacing) {
+  if (song && mouseX > spacing && mouseX < width - spacing && mouseY > 0 && mouseY < height) {
     song.jump(map(mouseX, spacing, width - spacing, 0, duration));
   }
 }
@@ -218,6 +223,7 @@ class Particle {
     this.pos.add(this.vel);
     this.rotation += this.angularSpeed;
     if (cond) {
+      this.pos.add(this.vel);
       this.pos.add(this.vel);
     }
   }
