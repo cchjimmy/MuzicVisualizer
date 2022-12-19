@@ -1,4 +1,4 @@
-var fft, song, duration, lowHzInput, highHzInput, amplitudeInput;
+var fft, song, duration, lowHzInput, highHzInput, amplitudeInput, vWidth, vHeight;
 var particles = [];
 const band = 64;
 const spacing = 20;
@@ -14,6 +14,8 @@ function setup() {
   }
 
   // Get elements
+  vWidth = document.getElementById('visualizerWidth');
+  vHeight = document.getElementById('visualizerHeight');
   amplitudeInput = document.getElementById('amplitudeInput');
   lowHzInput = document.getElementById('lowHzInput');
   highHzInput = document.getElementById('highHzInput');
@@ -32,6 +34,15 @@ function setup() {
   const audioCtx = getAudioContext();
   const audioDist = audioCtx.createMediaStreamDestination();
   const audioStream = audioDist.stream;
+
+  vWidth.onchange = resizeVisualizer;
+  vHeight.onchange = resizeVisualizer;
+
+  function resizeVisualizer() {
+    resizeCanvas(parseInt(vWidth.value), parseInt(vHeight.value));
+    video.width = width;
+    video.height = height;
+  }
 
   createFileInput((file) => {
     if (song) song.stop();
