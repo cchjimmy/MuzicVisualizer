@@ -264,6 +264,7 @@ class Particle {
     this.angularSpeed = random() * 2;
     this.rotation = 0;
     this.width = random(5, 10);
+    this.spawnPos = p5.Vector.random2D().mult(Math.min(width, height) / 4);
 
     this.randomize();
   }
@@ -286,7 +287,7 @@ class Particle {
   }
 
   randomize() {
-    this.pos = p5.Vector.random2D().mult(Math.min(width, height) / 4);
+    this.pos = this.spawnPos.copy();
     this.vel = createVector(0, 0);
     this.acc = this.pos.copy().mult(random(0.0001, 0.00001));
   }
