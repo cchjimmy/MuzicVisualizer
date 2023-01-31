@@ -1,12 +1,13 @@
 var fft, song, duration, lowHz, highHz, amplitudeInput, backgroundColor, particlesColor;
 var particles = [];
-const band = 64;
+const bands = 64;
 const spacing = 20;
 const cursorDiameter = 5;
 
 function setup() {
   createCanvas(400, 400).mouseClicked(togglePlay);
-  angleMode(DEGREES);
+  noStroke();
+
   fft = new p5.FFT();
 
   for (let i = 0; i < 300; i++) {
@@ -111,12 +112,14 @@ function setup() {
 
   // Convert raw data to video format
   mediaRecorder.onstop = () => {
-    var blob = new Blob(chunks, { type: 'video/mp4' });
-    chunks = [];
-    videoURL = URL.createObjectURL(blob);
+    if (videoURL) URL.revokeObjectURL(videoURL);
+
+    videoURL = URL.createObjectURL(new Blob(chunks, { type: chunks[0].type }));
 
     // Display video on video element
     video.src = videoURL;
+
+    chunks = [];
   }
 
   recordBtn.onclick = () => {
@@ -129,16 +132,14 @@ function setup() {
 
     mediaRecorder.stop();
     recordBtn.innerText = 'Record visualizer';
-
-    URL.revokeObjectURL(videoURL);
   }
 }
 
 function draw() {
   background(backgroundColor);
-  var amp = fft.getEnergy(parseFloat(lowHz), parseFloat(highHz));
-  var spectrum = fft.analyze();
-  var wave = fft.waveform();
+  const amp = fft.getEnergy(parseFloat(lowHz), parseFloat(highHz));
+  const spectrum = fft.analyze();
+  const wave = fft.waveform();
 
   document.getElementById('energy').innerHTML = amp.toFixed(1);
 
@@ -146,67 +147,33 @@ function draw() {
   push();
   translate(width / 2, height / 2);
   for (let i = 0; i < particles.length; i++) {
-    let particle = particles[i];
-    particle.update(amp > amplitudeInput);
-    particle.show(particlesColor);
+    let p = particles[i];
+    p.update(amp > amplitudeInput);
+    p.show(particlesColor);
 
-    if (particle.edges()) {
-      particle.randomize();
+    if (p.edges()) {
+      p.randomize();
     }
   }
   pop();
 
   // Mask
   push();
-  noStroke();
   fill(0, 255 - amp);
   rect(0, 0, width, height);
   pop();
 
   // Wave
-  push();
-  strokeWeight(3);
-  stroke(255);
-  noFill();
-  beginShape();
-  for (var i = 0; i < width; i++) {
-    var index = floor(map(i, 0, width, 0, wave.length));
-    var y = wave[index] * height / 5 + height / 2;
-    vertex(i, y);
-  }
-  endShape();
-  pop();
+  drawWaveform(0, height * 0.5, width, height * 0.333, wave);
 
   // Bar spectrum
-  push();
-  strokeWeight(3);
-  colorMode(HSB);
-  for (var i = 0; i < band; i++) {
-    let index = floor(map(i, 0, band, 0, spectrum.length));
-    let x = map(i, 0, band, spacing, width - spacing);
-    let y = map(spectrum[index], 0, 1024, height - spacing, spacing);
-    stroke(x / 10, 255, 255, 255);
-    line(x, height - spacing, x, y);
-  }
-  pop();
+  drawBarSpectrum(spacing, height - spacing, width - spacing, 100, spectrum, bands);
 
   // circle
-  // push();
-  // translate(width / 2, height / 2);
-  // for (var t = -1; t <= 1; t += 2) {
-  //   beginShape();
-  //   for (var i = 0; i <= 180; i++) {
-  //     var index = floor(map(i, 0, 180, 0, spectrum.length - 1));
-  //     var r = map(spectrum[index], 0, band, 100, 120);
-  //     var x = r * sin(i) * t;
-  //     var y = -r * cos(i);
-  //     vertex(x, y);
-  //   }
-  //   endShape();
-  // }
-  // pop();
+  // drawCircularSpectrum(width * 0.5, height * 0.5, 100, 120, spectrum);
 
   if (!song) return;
+
   // Progress
   push();
   strokeWeight(1);
@@ -256,12 +223,61 @@ function handleDrag() {
   }
 }
 
+function drawBarSpectrum(x, y, w, h, spectrum, bands) {
+  push();
+  colorMode(HSB);
+  let barWidth = w / bands - 3;
+  for (let i = 0; i < bands; i++) {
+    let index = floor(map(i, 0, bands, 0, spectrum.length));
+    let _x = map(i, 0, bands, x, w);
+    let _y = map(spectrum[index], 0, 255, barWidth, h);
+    fill(_x / 10, 255, 255, 255);
+    rect(_x - barWidth * 0.5, y, barWidth, -_y);
+  }
+  pop();
+}
+
+function drawWaveform(x, y, w, h, waveform) {
+  push();
+  strokeWeight(3);
+  stroke(255);
+  noFill();
+  beginShape();
+  for (let i = 0; i < w; i++) {
+    let index = floor(map(i, 0, w, 0, waveform.length));
+    let _y = waveform[index] * h;
+    vertex(i + x, -_y + y);
+  }
+  endShape();
+  pop();
+}
+
+function drawCircularSpectrum(x, y, rMin, rMax, spectrum) {
+  push();
+  strokeWeight(1);
+  stroke(255);
+  noFill();
+  translate(x, y);
+  for (let t = -1; t <= 1; t += 2) {
+    beginShape();
+    for (let i = 0; i < Math.PI; i += 0.1) {
+      let index = floor(map(i, 0, Math.PI, 0, spectrum.length - 1));
+      let r = map(spectrum[index], 0, 255, rMin, rMax);
+      let x = r * sin(i) * t;
+      let y = -r * cos(i);
+      vertex(x, y);
+    }
+    endShape();
+  }
+  pop();
+}
+
 class Particle {
   constructor() {
     this.pos;
     this.vel;
     this.acc;
-    this.angularSpeed = random() * 2;
+    this.angularSpeed = random(-0.1, 0.1);
     this.rotation = 0;
     this.width = random(5, 10);
     this.spawnPos = p5.Vector.random2D().mult(Math.min(width, height) / 4);
@@ -280,10 +296,7 @@ class Particle {
   }
 
   edges() {
-    if (this.pos.x < -width / 2 || this.pos.x > width / 2 || this.pos.y < -height / 2 || this.pos.y > height / 2) {
-      return true;
-    }
-    return false;
+    return this.pos.x < -width / 2 || this.pos.x > width / 2 || this.pos.y < -height / 2 || this.pos.y > height / 2;
   }
 
   randomize() {
@@ -294,7 +307,6 @@ class Particle {
 
   show(color) {
     push();
-    noStroke();
     fill(color);
     translate(this.pos.x, this.pos.y);
     rotate(this.rotation);
