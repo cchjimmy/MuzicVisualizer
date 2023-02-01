@@ -104,17 +104,15 @@ function setup() {
   var videoURL = '';
 
   // Push data into chunks when available
-  mediaRecorder.onstart = () => {
-    mediaRecorder.ondataavailable = (e) => {
-      chunks.push(e.data);
-    }
+  mediaRecorder.ondataavailable = (e) => {
+    chunks.push(e.data);
   }
-
+  
   // Convert raw data to video format
   mediaRecorder.onstop = () => {
     if (videoURL) URL.revokeObjectURL(videoURL);
 
-    videoURL = URL.createObjectURL(new Blob(chunks, { type: chunks[0].type }));
+    videoURL = URL.createObjectURL(new Blob(chunks, { type: 'video/mp4' }));
 
     // Display video on video element
     video.src = videoURL;
@@ -167,7 +165,7 @@ function draw() {
   drawWaveform(0, height * 0.5, width, height * 0.333, wave);
 
   // Bar spectrum
-  drawBarSpectrum(spacing, height - spacing, width - spacing, 100, spectrum, bands);
+  drawBarSpectrum(spacing, height - spacing, width - spacing, height * 0.25, spectrum, bands);
 
   // circle
   // drawCircularSpectrum(width * 0.5, height * 0.5, 100, 120, spectrum);
@@ -226,7 +224,7 @@ function handleDrag() {
 function drawBarSpectrum(x, y, w, h, spectrum, bands) {
   push();
   colorMode(HSB);
-  let barWidth = w / bands - 3;
+  let barWidth = w / (2 * bands);
   for (let i = 0; i < bands; i++) {
     let index = floor(map(i, 0, bands, 0, spectrum.length));
     let _x = map(i, 0, bands, x, w);
