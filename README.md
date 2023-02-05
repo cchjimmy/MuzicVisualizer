@@ -10,14 +10,14 @@ MuzicVisualizer is a program written in JavaScript with the aid of some external
 
 ## Usage
 * Choose an audio file to visualize
-* Click/ tap the canvas to start/ stop visualization
-* Audio seeking by dragging on the canvas
+* Click/ tap the play button to start/ pause visualization
+* Click the loop button to loop the visualization
+* Audio seek by dragging on the canvas
 * Click 'Record visualizer' to record
 
 ## Limitations
 * Only one visualization configuration available
-* Unable to control the increase in velocity of particles
 * Only one particle shape (square)
-* Unable to alter waveform graph and frequency graph colors
+* Unable to alter the colors of waveform and frequency graphs
 
 ![Visualizer](https://github.com/cchjimmy/MuzicVisualizer/blob/master/visualizer.png)

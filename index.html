@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Muzic Visualizer</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://kit.fontawesome.com/014dcd9a0e.js" crossorigin="anonymous"></script>
   <script src="libs/p5.min.js"></script>
   <script src="libs/p5.sound.min.js"></script>
   <script src="sketch.js"></script>
@@ -15,6 +16,9 @@
   <section>
     <input type="file" name="" id="audio" accept="audio/*">
     <button>Record visualizer</button>
+    <button id="play" class="fa-solid fa-play"></button>
+    <button id="stop" class="fa-solid fa-stop"></button>
+    <button id="loop" class="fa-solid fa-rotate-left"></button>
   </section>
 
   <main></main>
@@ -30,6 +34,7 @@
     Energy in region: <span id="energy">0.0</span><br>
     <br>Condition for particles to increase speed (0 - 255):<br>
     Energy amplitude > <input type="number" name="" id="amplitudeInput" value="200"><br>
+    <br>Speed increase multiplier: <input type="number" name="" id="speedMultiplier" value="2"><br>
     <br>Output recording: <br>
     <video></video>
   </section>

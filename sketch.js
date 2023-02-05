@@ -1,11 +1,14 @@
-var fft, song, duration, lowHz, highHz, amplitudeInput, backgroundColor, particlesColor;
+var fft, song, lowHz, highHz, amplitudeInput, backgroundColor, particlesColor, speedMultiplier;
 var particles = [];
 const bands = 64;
-const spacing = 20;
-const cursorDiameter = 5;
+const padding = 20;
+var currentTime = 0;
+var duration = 0;
+var dragging = false;
+var looping = false;
 
 function setup() {
-  createCanvas(400, 400).mouseClicked(togglePlay);
+  const canvas = createCanvas(400, 400);
   noStroke();
 
   fft = new p5.FFT();
@@ -15,7 +18,6 @@ function setup() {
   }
 
   // Get elements
-  const canvas = document.querySelector('canvas');
   const recordBtn = document.querySelector('button');
   const video = document.querySelector('video');
   video.controls = true;
@@ -72,8 +74,13 @@ function setup() {
         break;
       case 'audio':
         input.onchange = () => {
-          if (song) song.stop();
           if (!input.files[0]) return;
+
+          if (song) {
+            song.stop();
+            song.disconnect();
+          }
+          
           song = loadSound(input.files[0], () => {
             duration = song.duration();
 
@@ -82,6 +89,10 @@ function setup() {
           });
         }
         break;
+      case 'speedMultiplier':
+        speedMultiplier = parseFloat(input.value);
+        input.onchange = () => { speedMultiplier = parseFloat(input.value); };
+        break;
       default:
         break;
     }
@@ -89,12 +100,11 @@ function setup() {
 
   // credit: https://medium.com/@amatewasu/how-to-record-a-canvas-element-d4d0826d3591
   // Creates video stream from canvas
-  const videoStream = canvas.captureStream();
+  const videoStream = document.querySelector('canvas').captureStream();
 
   // Get audio context
   const audioCtx = getAudioContext();
   const audioDist = audioCtx.createMediaStreamDestination();
-  // const audioStream = audioDist.stream;
 
   // Adds audio track to video stream
   videoStream.addTrack(audioDist.stream.getAudioTracks()[0]);
@@ -133,6 +143,20 @@ function setup() {
     mediaRecorder.stop();
     recordBtn.innerText = 'Record visualizer';
   }
+
+  const playButton = document.getElementById('play');
+  const stopButton = document.getElementById('stop');
+  const loopButton = document.getElementById('loop');
+  playButton.onclick = () => { togglePlay(currentTime, song, playButton); };
+  stopButton.onclick = () => {
+    currentTime = 0;
+    song?.stop();
+    playButton.classList = 'fa-solid fa-play';
+  };
+  loopButton.onclick = () => {
+    looping = !looping;
+    loopButton.style.background = looping ? 'lightgreen' : 'white';
+  }
 }
 
 function draw() {
@@ -146,7 +170,7 @@ function draw() {
   // Particles
   for (let i = 0; i < particles.length; i++) {
     let p = particles[i];
-    p.update(amp > amplitudeInput);
+    p.update(amp > amplitudeInput, speedMultiplier);
     p.show(particlesColor);
 
     if (p.edges()) {
@@ -166,7 +190,7 @@ function draw() {
   drawWaveform(0, height * 0.5, width, height * 0.333, wave);
 
   // Bar spectrum
-  drawBarSpectrum(spacing, height - spacing, width - spacing, height * 0.25, spectrum, bands);
+  drawBarSpectrum(padding, height - padding, width - padding, height * 0.25, spectrum, bands);
 
   // circle
   // drawCircularSpectrum(width * 0.5, height * 0.5, 100, 120, spectrum);
@@ -174,36 +198,25 @@ function draw() {
   if (!song) return;
 
   // Progress
-  push();
-  strokeWeight(1);
-  stroke(255);
-  line(spacing, spacing, width - spacing, spacing);
-
-  let songCurrentTime = song.currentTime();
-  let x = map(songCurrentTime, 0, duration, spacing, width - spacing);
-  circle(x, spacing, cursorDiameter);
-
-  let t = `${formatTime(songCurrentTime)} / ${formatTime(duration)}`;
-  fill(255);
-  noStroke();
-  textSize(height / 50);
-  text(t, (width - textWidth(t)) * 0.5, spacing + textAscent() + cursorDiameter);
-  pop();
+  if (!dragging && song.isPlaying()) currentTime = song.currentTime();
+  drawProgressBar(padding, padding, width - padding, currentTime, duration);
 }
 
-function togglePlay() {
-  if (!song) return;
-  if (song.isPlaying()) {
-    song.pause();
+function togglePlay(time, song, element) {
+  if (song?.isPlaying()) {
+    element.classList = 'fa-solid fa-play';
+    song?.pause();
     return;
   }
-  song.loop();
+  song?.stop();
+  looping ? song?.loop(0, 1, 1, time) : song?.play(0, 1, 1, time);
+  element.classList = 'fa-solid fa-pause';
 }
 
 function formatTime(seconds) {
   let m = Math.floor(seconds / 60);
   let s = Math.floor(seconds - m * 60);
-  if (s < 10) s = `0${s}`;
+  s = s < 10 ? `0${s}` : s;
   return `${m}:${s}`;
 }
 
@@ -215,11 +228,27 @@ function touchMoved() {
   handleDrag();
 }
 
+function touchEnded() {
+  handleDragEnd();
+}
+
+function mouseReleased() {
+  handleDragEnd();
+}
+
 function handleDrag() {
-  if (song && mouseX > spacing && mouseX < width - spacing && mouseY > 0 && mouseY < height) {
+  dragging = true;
+  if (mouseX > padding && mouseX < width - padding && mouseY > 0 && mouseY < height) {
     // Audio seeking
-    song.jump(map(mouseX, spacing, width - spacing, 0, duration));
+    currentTime = map(mouseX, padding, width - padding, 0, duration);
   }
+}
+
+function handleDragEnd() {
+  if (song?.isPlaying()) {
+    song?.jump(currentTime);
+  }
+  dragging = false;
 }
 
 function drawBarSpectrum(x, y, w, h, spectrum, bands) {
@@ -271,6 +300,22 @@ function drawCircularSpectrum(x, y, rMin, rMax, spectrum) {
   pop();
 }
 
+function drawProgressBar(x, y, w, currentTime, duration) {
+  push();
+  strokeWeight(1);
+  stroke(255);
+  line(x, y, w, y);
+
+  circle(map(currentTime, 0, duration, x, w), y, 5);
+
+  let t = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+  fill(255);
+  noStroke();
+  textSize(height / 50);
+  text(t, (width - textWidth(t)) * 0.5, y + textAscent() + 5);
+  pop();
+}
+
 class Particle {
   constructor() {
     this.pos;
@@ -284,13 +329,13 @@ class Particle {
     this.randomize();
   }
 
-  update(cond) {
+  update(cond, multiplier) {
     this.vel.add(this.acc);
     this.pos.add(this.vel);
     this.rotation += this.angularSpeed;
     if (cond) {
-      this.pos.add(this.vel);
-      this.pos.add(this.vel);
+      let vel1 = this.vel.copy().mult(multiplier);
+      this.pos.add(vel1);
     }
   }
 
