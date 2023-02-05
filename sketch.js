@@ -20,9 +20,20 @@ function setup() {
   // Get elements
   const recordBtn = document.querySelector('button');
   const video = document.querySelector('video');
+  const playButton = document.getElementById('play');
+  const stopButton = document.getElementById('stop');
+  const loopButton = document.getElementById('loop');
+  
   video.controls = true;
   video.width = canvas.width;
   video.height = canvas.height;
+
+  playButton.onclick = () => togglePlay(currentTime, song, playButton);
+  stopButton.onclick = () => toggleStop(song, playButton);
+  loopButton.onclick = () => {
+    looping = !looping;
+    loopButton.style.background = looping ? 'lightgreen' : 'white';
+  }
 
   let inputs = document.querySelectorAll('input');
   for (let i = 0; i < inputs.length; i++) {
@@ -76,16 +87,23 @@ function setup() {
         input.onchange = () => {
           if (!input.files[0]) return;
 
-          if (song) {
-            song.stop();
-            song.disconnect();
-          }
-          
+          song?.stop();
+          song?.disconnect();
+
           song = loadSound(input.files[0], () => {
             duration = song.duration();
 
             // Connects song output to audio destination
             song.connect(audioDist);
+
+            song.onended(() => {
+              if (song.currentTime() < duration - 0.5) return;
+              if (song.isPlaying()) toggleStop(song, playButton);
+              if (looping) {
+                song.play();
+                playButton.classList = 'fa-solid fa-pause';
+              }
+            })
           });
         }
         break;
@@ -120,10 +138,11 @@ function setup() {
     chunks.push(e.data);
   }
 
-  // Convert raw data to video format
   mediaRecorder.onstop = () => {
+    // revoke old url
     if (videoURL) URL.revokeObjectURL(videoURL);
 
+    // Convert raw data to video format
     videoURL = URL.createObjectURL(new Blob(chunks, { type: 'video/mp4' }));
 
     // Display video on video element
@@ -133,8 +152,7 @@ function setup() {
   }
 
   recordBtn.onclick = () => {
-    let innerText = recordBtn.innerText;
-    if (innerText == 'Record visualizer') {
+    if (recordBtn.innerText == 'Record visualizer') {
       mediaRecorder.start();
       recordBtn.innerText = 'Stop';
       return;
@@ -142,20 +160,6 @@ function setup() {
 
     mediaRecorder.stop();
     recordBtn.innerText = 'Record visualizer';
-  }
-
-  const playButton = document.getElementById('play');
-  const stopButton = document.getElementById('stop');
-  const loopButton = document.getElementById('loop');
-  playButton.onclick = () => { togglePlay(currentTime, song, playButton); };
-  stopButton.onclick = () => {
-    currentTime = 0;
-    song?.stop();
-    playButton.classList = 'fa-solid fa-play';
-  };
-  loopButton.onclick = () => {
-    looping = !looping;
-    loopButton.style.background = looping ? 'lightgreen' : 'white';
   }
 }
 
@@ -202,14 +206,21 @@ function draw() {
   drawProgressBar(padding, padding, width - padding, currentTime, duration);
 }
 
+function toggleStop(song, playButton) {
+  currentTime = 0;
+  song?.stop();
+  playButton.classList = 'fa-solid fa-play';
+}
+
 function togglePlay(time, song, element) {
-  if (song?.isPlaying()) {
+  if (!song) return;
+  if (song.isPlaying()) {
     element.classList = 'fa-solid fa-play';
-    song?.pause();
+    song.pause();
     return;
   }
-  song?.stop();
-  looping ? song?.loop(0, 1, 1, time) : song?.play(0, 1, 1, time);
+  song.stop();
+  song.play(0, 1, 1, time);
   element.classList = 'fa-solid fa-pause';
 }
 
@@ -245,8 +256,10 @@ function handleDrag() {
 }
 
 function handleDragEnd() {
-  if (song?.isPlaying()) {
-    song?.jump(currentTime);
+  if (mouseX > padding && mouseX < width - padding && mouseY > 0 && mouseY < height) {
+    if (song?.isPlaying()) {
+      song?.jump(currentTime);
+    }
   }
   dragging = false;
 }

@@ -19,5 +19,6 @@ MuzicVisualizer is a program written in JavaScript with the aid of some external
 * Only one visualization configuration available
 * Only one particle shape (square)
 * Unable to alter the colors of waveform and frequency graphs
+* Audio in the output recording will delay, if 'Record visualizer' is clicked first then the play button
 
 ![Visualizer](https://github.com/cchjimmy/MuzicVisualizer/blob/master/visualizer.png)
