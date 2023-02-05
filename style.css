@@ -1,0 +1,23 @@
+html, body {
+  padding: 0;
+  margin: 0;
+  background: #30414b;
+}
+
+section {
+  background-color: rgb(22, 36, 53);
+  color: white;
+  padding: 10px;
+}
+
+canvas {
+  position: relative;
+  left: 50%;
+  transform: translate(-50%, 0);
+}
+
+video {
+  position: relative;
+  left: 50%;
+  transform: translate(-50%, 0);
+}

@@ -70,6 +70,18 @@ function setup() {
       case 'amplitudeInput':
         amplitudeInput = parseFloat(input.value);
         break;
+      case 'audio':
+        input.onchange = () => {
+          if (song) song.stop();
+          if (!input.files[0]) return;
+          song = loadSound(input.files[0], () => {
+            duration = song.duration();
+
+            // Connects song output to audio destination
+            song.connect(audioDist);
+          });
+        }
+        break;
       default:
         break;
     }
@@ -82,20 +94,10 @@ function setup() {
   // Get audio context
   const audioCtx = getAudioContext();
   const audioDist = audioCtx.createMediaStreamDestination();
-  const audioStream = audioDist.stream;
-
-  createFileInput((file) => {
-    if (song) song.stop();
-    song = loadSound(file, () => {
-      duration = song.duration();
-
-      // Connects song output to audio destination
-      song.connect(audioDist);
-    });
-  }).position(0, 0);
+  // const audioStream = audioDist.stream;
 
   // Adds audio track to video stream
-  videoStream.addTrack(audioStream.getAudioTracks()[0]);
+  videoStream.addTrack(audioDist.stream.getAudioTracks()[0]);
 
   // Record the stream
   const mediaRecorder = new MediaRecorder(videoStream);
@@ -107,7 +109,7 @@ function setup() {
   mediaRecorder.ondataavailable = (e) => {
     chunks.push(e.data);
   }
-  
+
   // Convert raw data to video format
   mediaRecorder.onstop = () => {
     if (videoURL) URL.revokeObjectURL(videoURL);
@@ -142,8 +144,6 @@ function draw() {
   document.getElementById('energy').innerHTML = amp.toFixed(1);
 
   // Particles
-  push();
-  translate(width / 2, height / 2);
   for (let i = 0; i < particles.length; i++) {
     let p = particles[i];
     p.update(amp > amplitudeInput);
@@ -153,11 +153,12 @@ function draw() {
       p.randomize();
     }
   }
-  pop();
 
   // Mask
   push();
-  fill(0, 255 - amp);
+  let c = color(backgroundColor);
+  c.setAlpha(255 - amp);
+  fill(c);
   rect(0, 0, width, height);
   pop();
 
@@ -300,13 +301,13 @@ class Particle {
   randomize() {
     this.pos = this.spawnPos.copy();
     this.vel = createVector(0, 0);
-    this.acc = this.pos.copy().mult(random(0.0001, 0.00001));
+    this.acc = this.pos.copy().mult(random(0.00001, 0.0001));
   }
 
   show(color) {
     push();
     fill(color);
-    translate(this.pos.x, this.pos.y);
+    translate(this.pos.x + width * 0.5, this.pos.y + height * 0.5);
     rotate(this.rotation);
     rect(-this.width / 2, -this.width / 2, this.width);
     pop();
