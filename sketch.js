@@ -10,7 +10,7 @@ var looping = false;
 function setup() {
   const canvas = createCanvas(400, 400);
   noStroke();
-
+  
   fft = new p5.FFT();
 
   for (let i = 0; i < 300; i++) {
@@ -38,8 +38,7 @@ function setup() {
   let inputs = document.querySelectorAll('input');
   for (let i = 0; i < inputs.length; i++) {
     let input = inputs[i];
-    let id = input.id;
-    switch (id) {
+    switch (input.id) {
       case 'visualizerWidth':
         resizeCanvas(input.value, height);
         video.width = input.value;
@@ -90,20 +89,24 @@ function setup() {
           song?.stop();
           song?.disconnect();
 
-          song = loadSound(input.files[0], () => {
-            duration = song.duration();
-
+          song = loadSound(input.files[0], (s) => {
+            duration = s.duration();
+            
             // Connects song output to audio destination
-            song.connect(audioDist);
+            s.connect(audioDist);
+            
+            toggleStop(s, playButton);
 
-            song.onended(() => {
-              if (song.currentTime() < duration - 0.5) return;
-              if (song.isPlaying()) toggleStop(song, playButton);
+            s.onended(() => {
+              if (s.currentTime() < duration - 0.5) return;
+              if (s.isPlaying()) toggleStop(s, playButton);
               if (looping) {
-                song.play();
+                s.play();
                 playButton.classList = 'fa-solid fa-pause';
               }
             })
+            
+            return s;
           });
         }
         break;
@@ -164,13 +167,15 @@ function setup() {
 }
 
 function draw() {
-  background(backgroundColor);
   const amp = fft.getEnergy(parseFloat(lowHz), parseFloat(highHz));
   const spectrum = fft.analyze();
   const wave = fft.waveform();
 
   document.getElementById('energy').innerHTML = amp.toFixed(1);
 
+  // Background
+  background(backgroundColor);
+  
   // Particles
   for (let i = 0; i < particles.length; i++) {
     let p = particles[i];
@@ -178,7 +183,7 @@ function draw() {
     p.show(particlesColor);
 
     if (p.edges()) {
-      p.randomize();
+      p.reset();
     }
   }
 
@@ -196,7 +201,7 @@ function draw() {
   // Bar spectrum
   drawBarSpectrum(padding, height - padding, width - padding, height * 0.25, spectrum, bands);
 
-  // circle
+  // Circle
   // drawCircularSpectrum(width * 0.5, height * 0.5, 100, 120, spectrum);
 
   if (!song) return;
@@ -207,8 +212,9 @@ function draw() {
 }
 
 function toggleStop(song, playButton) {
+  if (!song) return;
+  song.stop();
   currentTime = 0;
-  song?.stop();
   playButton.classList = 'fa-solid fa-play';
 }
 
@@ -248,18 +254,16 @@ function mouseReleased() {
 }
 
 function handleDrag() {
-  dragging = true;
   if (mouseX > padding && mouseX < width - padding && mouseY > 0 && mouseY < height) {
+    dragging = true;
     // Audio seeking
     currentTime = map(mouseX, padding, width - padding, 0, duration);
   }
 }
 
 function handleDragEnd() {
-  if (mouseX > padding && mouseX < width - padding && mouseY > 0 && mouseY < height) {
-    if (song?.isPlaying()) {
-      song?.jump(currentTime);
-    }
+  if (song && song.isPlaying() && dragging) {
+    song.jump(currentTime);
   }
   dragging = false;
 }
@@ -331,15 +335,12 @@ function drawProgressBar(x, y, w, currentTime, duration) {
 
 class Particle {
   constructor() {
-    this.pos;
-    this.vel;
-    this.acc;
     this.angularSpeed = random(-0.1, 0.1);
     this.rotation = 0;
     this.width = random(5, 10);
     this.spawnPos = p5.Vector.random2D().mult(Math.min(width, height) / 4);
-
-    this.randomize();
+    this.reset();
+    this.acc = this.pos.copy().mult(random(0.00001, 0.0001));
   }
 
   update(cond, multiplier) {
@@ -347,8 +348,7 @@ class Particle {
     this.pos.add(this.vel);
     this.rotation += this.angularSpeed;
     if (cond) {
-      let vel1 = this.vel.copy().mult(multiplier);
-      this.pos.add(vel1);
+      this.pos.add(this.vel.copy().mult(multiplier));
     }
   }
 
@@ -356,10 +356,9 @@ class Particle {
     return this.pos.x < -width / 2 || this.pos.x > width / 2 || this.pos.y < -height / 2 || this.pos.y > height / 2;
   }
 
-  randomize() {
+  reset() {
     this.pos = this.spawnPos.copy();
     this.vel = createVector(0, 0);
-    this.acc = this.pos.copy().mult(random(0.00001, 0.0001));
   }
 
   show(color) {
