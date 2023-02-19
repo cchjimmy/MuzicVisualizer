@@ -1,20 +1,54 @@
 var fft, song, lowHz, highHz, amplitudeInput, backgroundColor, particlesColor, speedMultiplier;
-var particles = [];
+const particles = [];
+const shapes = [];
+const pos = [];
+const angles = [];
 const bands = 64;
 const padding = 20;
 var currentTime = 0;
 var duration = 0;
 var dragging = false;
 var looping = false;
+var canvas, ctx;
 
 function setup() {
-  const canvas = createCanvas(400, 400);
+  createCanvas(400, 400);
   noStroke();
-  
+
+  canvas = document.querySelector('canvas');
+  ctx = canvas.getContext('2d');
+
   fft = new p5.FFT();
 
   for (let i = 0; i < 300; i++) {
-    particles.push(new Particle());
+    let spawn = p5.Vector.random2D().mult(Math.min(width, height) / 4);
+    particles.push({
+      spawn,
+      vel: createVector(0, 0),
+      acc: spawn.copy().mult(random(0.00001, 0.0001)),
+      angularSpeed: random(-0.1, 0.1),
+    });
+    angles.push(0)
+    pos.push(particles[i].spawn.copy());
+    let halfSide = random(5, 10) * 0.5;
+    shapes.push([
+      {
+        x: -halfSide,
+        y: -halfSide
+      },
+      {
+        x: halfSide,
+        y: -halfSide
+      },
+      {
+        x: halfSide,
+        y: halfSide
+      },
+      {
+        x: -halfSide,
+        y: halfSide
+      },
+    ]);
   }
 
   // Get elements
@@ -23,7 +57,7 @@ function setup() {
   const playButton = document.getElementById('play');
   const stopButton = document.getElementById('stop');
   const loopButton = document.getElementById('loop');
-  
+
   video.controls = true;
   video.width = canvas.width;
   video.height = canvas.height;
@@ -91,10 +125,10 @@ function setup() {
 
           song = loadSound(input.files[0], (s) => {
             duration = s.duration();
-            
+
             // Connects song output to audio destination
             s.connect(audioDist);
-            
+
             toggleStop(s, playButton);
 
             s.onended(() => {
@@ -105,7 +139,7 @@ function setup() {
                 playButton.classList = 'fa-solid fa-pause';
               }
             })
-            
+
             return s;
           });
         }
@@ -173,19 +207,32 @@ function draw() {
 
   document.getElementById('energy').innerHTML = amp.toFixed(1);
 
-  // Background
-  background(backgroundColor);
-  
-  // Particles
+  // Update positions
   for (let i = 0; i < particles.length; i++) {
     let p = particles[i];
-    p.update(amp > amplitudeInput, speedMultiplier);
-    p.show(particlesColor);
 
-    if (p.edges()) {
-      p.reset();
+    p.vel.add(p.acc);
+    pos[i].add(p.vel);
+    angles[i] += p.angularSpeed;
+
+    if (amp > amplitudeInput) {
+      pos[i].add(p.vel.copy().mult(speedMultiplier));
+    }
+
+    if (pos[i].x < -width / 2 || pos[i].x > width / 2 || pos[i].y < -height / 2 || pos[i].y > height / 2) {
+      pos[i] = p.spawn.copy();
+      p.vel = createVector(0, 0);
     }
   }
+
+  // Background
+  background(backgroundColor);
+
+  // Particles
+  push();
+  translate(width * 0.5, height * 0.5);
+  batchShapeDraw(ctx, pos, angles, shapes, particlesColor)
+  pop();
 
   // Mask
   push();
@@ -317,6 +364,38 @@ function drawCircularSpectrum(x, y, rMin, rMax, spectrum) {
   pop();
 }
 
+function batchShapeDraw(ctx, pos, angle, shape, color = 'black', fill = true, closeShape = true) {
+  ctx.save();
+  fill ? ctx.fillStyle = color : ctx.strokeStyle = color;
+
+  ctx.beginPath();
+  for (let i = 0; i < pos.length; i++) {
+    // get cosine and sine of angle
+    let c = Math.cos(angle[i]);
+    let s = Math.sin(angle[i]);
+
+    // transform
+    let transformed = [];
+    for (let j = 0; j < shape[i].length; j++) {
+      let x = shape[i][j].x;
+      let y = shape[i][j].y;
+      transformed.push({ x: c * x + -s * y, y: s * x + c * y });
+    }
+
+    // add lines to path
+    ctx.moveTo(pos[i].x, pos[i].y);
+    for (let j = 0; j < transformed.length; j++) {
+      ctx.lineTo(pos[i].x + transformed[j].x, pos[i].y + transformed[j].y);
+    }
+
+    if (closeShape) ctx.lineTo(pos[i].x + transformed[0].x, pos[i].y + transformed[0].y);
+  }
+
+  // draws all at once
+  fill ? ctx.fill() : ctx.stroke();
+  ctx.restore();
+}
+
 function drawProgressBar(x, y, w, currentTime, duration) {
   push();
   strokeWeight(1);
@@ -331,42 +410,4 @@ function drawProgressBar(x, y, w, currentTime, duration) {
   textSize(height / 50);
   text(t, (width - textWidth(t)) * 0.5, y + textAscent() + 5);
   pop();
-}
-
-class Particle {
-  constructor() {
-    this.angularSpeed = random(-0.1, 0.1);
-    this.rotation = 0;
-    this.width = random(5, 10);
-    this.spawnPos = p5.Vector.random2D().mult(Math.min(width, height) / 4);
-    this.reset();
-    this.acc = this.pos.copy().mult(random(0.00001, 0.0001));
-  }
-
-  update(cond, multiplier) {
-    this.vel.add(this.acc);
-    this.pos.add(this.vel);
-    this.rotation += this.angularSpeed;
-    if (cond) {
-      this.pos.add(this.vel.copy().mult(multiplier));
-    }
-  }
-
-  edges() {
-    return this.pos.x < -width / 2 || this.pos.x > width / 2 || this.pos.y < -height / 2 || this.pos.y > height / 2;
-  }
-
-  reset() {
-    this.pos = this.spawnPos.copy();
-    this.vel = createVector(0, 0);
-  }
-
-  show(color) {
-    push();
-    fill(color);
-    translate(this.pos.x + width * 0.5, this.pos.y + height * 0.5);
-    rotate(this.rotation);
-    rect(-this.width / 2, -this.width / 2, this.width);
-    pop();
-  }
 }
