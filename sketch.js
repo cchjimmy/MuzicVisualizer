@@ -1,8 +1,9 @@
 var fft, song, lowHz, highHz, amplitudeInput, backgroundColor, particlesColor, speedMultiplier;
 const particles = [];
-const shapes = [];
+const shape = [[-0.5, -0.5],[0.5,-0.5],[0.5,0.5],[-0.5,0.5]];
 const pos = [];
 const angles = [];
+const scales = [];
 const bands = 64;
 const padding = 20;
 var currentTime = 0;
@@ -29,26 +30,9 @@ function setup() {
       angularSpeed: random(-0.1, 0.1),
     });
     angles.push(0)
-    pos.push(particles[i].spawn.copy());
-    let halfSide = random(5, 10) * 0.5;
-    shapes.push([
-      {
-        x: -halfSide,
-        y: -halfSide
-      },
-      {
-        x: halfSide,
-        y: -halfSide
-      },
-      {
-        x: halfSide,
-        y: halfSide
-      },
-      {
-        x: -halfSide,
-        y: halfSide
-      },
-    ]);
+    pos.push([particles[i].spawn.x,particles[i].spawn.y]);
+    let r = random(5,10);
+    scales.push([r,r]);
   }
 
   // Get elements
@@ -61,13 +45,6 @@ function setup() {
   video.controls = true;
   video.width = canvas.width;
   video.height = canvas.height;
-
-  playButton.onclick = () => togglePlay(currentTime, song, playButton);
-  stopButton.onclick = () => toggleStop(song, playButton);
-  loopButton.onclick = () => {
-    looping = !looping;
-    loopButton.style.background = looping ? 'lightgreen' : 'white';
-  }
 
   let inputs = document.querySelectorAll('input');
   for (let i = 0; i < inputs.length; i++) {
@@ -129,14 +106,13 @@ function setup() {
             // Connects song output to audio destination
             s.connect(audioDist);
 
-            toggleStop(s, playButton);
+            stopSong(mediaRecorder, s, playButton);
 
             s.onended(() => {
               if (s.currentTime() < duration - 0.5) return;
-              if (s.isPlaying()) toggleStop(s, playButton);
+              if (s.isPlaying()) stopSong(mediaRecorder, s, playButton);
               if (looping) {
-                s.play();
-                playButton.classList = 'fa-solid fa-pause';
+                togglePlay(mediaRecorder, 0, s, playButton);
               }
             })
 
@@ -167,36 +143,35 @@ function setup() {
   // Record the stream
   const mediaRecorder = new MediaRecorder(videoStream);
 
-  var chunks = [];
   var videoURL = '';
+  var chunks = [];
 
-  // Push data into chunks when available
   mediaRecorder.ondataavailable = (e) => {
-    chunks.push(e.data);
+    if (e.data.size > 0) chunks.push(e.data);
   }
-
+  
   mediaRecorder.onstop = () => {
     // revoke old url
     if (videoURL) URL.revokeObjectURL(videoURL);
-
+    
     // Convert raw data to video format
     videoURL = URL.createObjectURL(new Blob(chunks, { type: 'video/mp4' }));
 
     // Display video on video element
     video.src = videoURL;
-
-    chunks = [];
+    
+    chunks.splice(0);
   }
 
-  recordBtn.onclick = () => {
-    if (recordBtn.innerText == 'Record visualizer') {
-      mediaRecorder.start();
-      recordBtn.innerText = 'Stop';
-      return;
-    }
-
-    mediaRecorder.stop();
-    recordBtn.innerText = 'Record visualizer';
+  recordBtn.onclick = () => toggleRecord(mediaRecorder, recordBtn);
+  
+  playButton.onclick = () => togglePlay(mediaRecorder, currentTime, song, playButton);
+  
+  stopButton.onclick = () => stopSong(mediaRecorder, song, playButton);
+  
+  loopButton.onclick = () => {
+    looping = !looping;
+    loopButton.style.background = looping ? 'lightgreen' : 'white';
   }
 }
 
@@ -212,16 +187,21 @@ function draw() {
     let p = particles[i];
 
     p.vel.add(p.acc);
-    pos[i].add(p.vel);
+    pos[i][0] += p.vel.x;
+    pos[i][1] += p.vel.y;
     angles[i] += p.angularSpeed;
 
     if (amp > amplitudeInput) {
-      pos[i].add(p.vel.copy().mult(speedMultiplier));
+      let v = p.vel.copy().mult(speedMultiplier);
+      pos[i][0] += v.x;
+      pos[i][1] += v.y;
     }
 
-    if (pos[i].x < -width / 2 || pos[i].x > width / 2 || pos[i].y < -height / 2 || pos[i].y > height / 2) {
-      pos[i] = p.spawn.copy();
-      p.vel = createVector(0, 0);
+    if (pos[i][0] < -width / 2 || pos[i][0] > width / 2 || pos[i][1] < -height / 2 || pos[i][1] > height / 2) {
+      pos[i][0] = p.spawn.x;
+      pos[i][1] = p.spawn.y;
+      p.vel.x = 0;
+      p.vel.y = 0;
     }
   }
 
@@ -231,7 +211,7 @@ function draw() {
   // Particles
   push();
   translate(width * 0.5, height * 0.5);
-  batchShapeDraw(ctx, pos, angles, shapes, particlesColor)
+  batchShapeDraw(ctx, pos, angles, scales, shape, particlesColor)
   pop();
 
   // Mask
@@ -258,23 +238,39 @@ function draw() {
   drawProgressBar(padding, padding, width - padding, currentTime, duration);
 }
 
-function toggleStop(song, playButton) {
+function stopSong(mediaRecorder, song, playButton) {
   if (!song) return;
   song.stop();
-  currentTime = 0;
+  if (mediaRecorder.state == 'recording') mediaRecorder.pause();
   playButton.classList = 'fa-solid fa-play';
+  currentTime = 0;
 }
 
-function togglePlay(time, song, element) {
+function togglePlay(mediaRecorder, time, song, element) {
   if (!song) return;
+  
   if (song.isPlaying()) {
-    element.classList = 'fa-solid fa-play';
     song.pause();
+    if (mediaRecorder.state == 'recording') mediaRecorder.pause();
+    element.classList = 'fa-solid fa-play';
     return;
   }
   song.stop();
   song.play(0, 1, 1, time);
+  currentTime = time;
+  if (mediaRecorder.state == 'paused') mediaRecorder.resume();
   element.classList = 'fa-solid fa-pause';
+}
+
+function toggleRecord(mediaRecorder, recordBtn) {
+  if (mediaRecorder.state == 'inactive') {
+    mediaRecorder.start();
+    recordBtn.innerText = 'Stop';
+    return;
+  }
+
+  mediaRecorder.stop();
+  recordBtn.innerText = 'Record visualizer';
 }
 
 function formatTime(seconds) {
@@ -364,7 +360,7 @@ function drawCircularSpectrum(x, y, rMin, rMax, spectrum) {
   pop();
 }
 
-function batchShapeDraw(ctx, pos, angle, shape, color = 'black', fill = true, closeShape = true) {
+function batchShapeDraw(ctx, pos, angle, scale, shape, color = 'black', fill = true) {
   ctx.save();
   fill ? ctx.fillStyle = color : ctx.strokeStyle = color;
 
@@ -375,20 +371,21 @@ function batchShapeDraw(ctx, pos, angle, shape, color = 'black', fill = true, cl
     let s = Math.sin(angle[i]);
 
     // transform
-    let transformed = [];
-    for (let j = 0; j < shape[i].length; j++) {
-      let x = shape[i][j].x;
-      let y = shape[i][j].y;
-      transformed.push({ x: c * x + -s * y, y: s * x + c * y });
+    let transformed = new Array(shape.length);
+    for (let j = 0; j < shape.length; j++) {
+      let x = shape[j][0] * scale[i][0];
+      let y = shape[j][1] * scale[i][1];
+      transformed[j] = [c * x + -s * y, s * x + c * y];
     }
 
     // add lines to path
-    ctx.moveTo(pos[i].x, pos[i].y);
+    ctx.moveTo(pos[i][0], pos[i][1]);
     for (let j = 0; j < transformed.length; j++) {
-      ctx.lineTo(pos[i].x + transformed[j].x, pos[i].y + transformed[j].y);
+      ctx.lineTo(pos[i][0] + transformed[j][0], pos[i][1] + transformed[j][1]);
     }
-
-    if (closeShape) ctx.lineTo(pos[i].x + transformed[0].x, pos[i].y + transformed[0].y);
+    
+    // close shape
+    ctx.lineTo(pos[i][0] + transformed[0][0], pos[i][1] + transformed[0][1]);
   }
 
   // draws all at once
