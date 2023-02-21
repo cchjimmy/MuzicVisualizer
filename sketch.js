@@ -10,14 +10,16 @@ var currentTime = 0;
 var duration = 0;
 var dragging = false;
 var looping = false;
-var canvas, ctx;
+var canvas, ctx, BGLayer, BGctx;
 
 function setup() {
-  createCanvas(400, 400);
+  canvas = createCanvas(400, 400);
+  ctx = canvas.drawingContext;
+  
+  BGLayer = createGraphics(canvas.width, canvas.height);
+  BGctx = BGLayer.drawingContext;
+  
   noStroke();
-
-  canvas = document.querySelector('canvas');
-  ctx = canvas.getContext('2d');
 
   fft = new p5.FFT();
 
@@ -53,17 +55,21 @@ function setup() {
       case 'visualizerWidth':
         resizeCanvas(input.value, height);
         video.width = input.value;
+        BGLayer.width = input.value;
         input.onchange = () => {
           resizeCanvas(input.value, height);
           video.width = input.value;
+          BGLayer.width = input.value;
         }
         break;
       case 'visualizerHeight':
         resizeCanvas(width, input.value);
         video.height = input.value;
+        BGLayer.height = input.value;
         input.onchange = () => {
           resizeCanvas(width, input.value);
           video.height = input.value;
+          BGLayer.height = input.value;
         }
         break;
       case 'backgroundColorInput':
@@ -205,28 +211,33 @@ function draw() {
     }
   }
 
+  clear();
+  
   // Background
-  background(backgroundColor);
-
-  // Particles
-  push();
-  translate(width * 0.5, height * 0.5);
-  batchShapeDraw(ctx, pos, angles, scales, shape, particlesColor)
-  pop();
-
-  // Mask
-  push();
   let c = color(backgroundColor);
   c.setAlpha(255 - amp);
-  fill(c);
-  rect(0, 0, width, height);
-  pop();
+  BGctx.fillStyle = c;
+  BGctx.fillRect(0, 0, width, height);
+  
+  // Particles
+  BGctx.save();
+  BGctx.translate(width * 0.5, height * 0.5);
+  batchShapeDraw(BGctx, pos, angles, scales, shape, particlesColor)
+  BGctx.restore();
+  
+  // Mask
+  // c.setAlpha(225 - amp);
+  BGctx.fillStyle = c;
+  BGctx.fillRect(0, 0, width, height);
+  
+  // draw background layer
+  image(BGLayer, 0, 0);
 
   // Wave
-  drawWaveform(0, height * 0.5, width, height * 0.333, wave);
+  drawWaveform(ctx, 0, height * 0.5, width, height * 0.333, wave);
 
   // Bar spectrum
-  drawBarSpectrum(padding, height - padding, width - padding, height * 0.25, spectrum, bands);
+  drawBarSpectrum(ctx, padding, height - padding, width - padding, height * 0.25, spectrum, bands);
 
   // Circle
   // drawCircularSpectrum(width * 0.5, height * 0.5, 100, 120, spectrum);
@@ -235,7 +246,7 @@ function draw() {
 
   // Progress
   if (!dragging && song.isPlaying()) currentTime = song.currentTime();
-  drawProgressBar(padding, padding, width - padding, currentTime, duration);
+  drawProgressBar(ctx, padding, padding, width - padding, currentTime, duration);
 }
 
 function stopSong(mediaRecorder, song, playButton) {
@@ -311,33 +322,39 @@ function handleDragEnd() {
   dragging = false;
 }
 
-function drawBarSpectrum(x, y, w, h, spectrum, bands) {
-  push();
-  colorMode(HSB);
-  let barWidth = w / (2 * bands);
+function drawBarSpectrum(ctx, x, y, w, h, spectrum, bands) {
+  let halfBarWidth = w / (2 * bands) * 0.5;
+  
+  ctx.save();
+  ctx.fillStyle = 'red';
+  ctx.beginPath();
   for (let i = 0; i < bands; i++) {
     let index = floor(map(i, 0, bands, 0, spectrum.length));
-    let _x = map(i, 0, bands, x, w);
-    let _y = map(spectrum[index], 0, 255, barWidth, h);
-    fill(_x / 10, 255, 255, 255);
-    rect(_x - barWidth * 0.5, y, barWidth, -_y);
+    let _x = map(i, 0, bands, x, w); // horizontal position of bar
+    let _y = y - map(spectrum[index], 0, 255, halfBarWidth * 2, h); // actual height of bar
+    ctx.moveTo(_x - halfBarWidth, y); // y refers to bottom
+    ctx.lineTo(_x + halfBarWidth, y);
+    ctx.lineTo(_x + halfBarWidth, _y);
+    ctx.lineTo(_x - halfBarWidth, _y);
+    ctx.lineTo(_x - halfBarWidth, y);
   }
-  pop();
+  ctx.fill();
+  ctx.restore();
 }
 
-function drawWaveform(x, y, w, h, waveform) {
-  push();
-  strokeWeight(3);
-  stroke(255);
-  noFill();
-  beginShape();
+function drawWaveform(ctx, x, y, w, h, waveform) {
+  ctx.save();
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
   for (let i = 0; i < w; i++) {
     let index = floor(map(i, 0, w, 0, waveform.length));
     let _y = waveform[index] * h;
-    vertex(i + x, -_y + y);
+    ctx.lineTo(i + x, -_y + y);
   }
-  endShape();
-  pop();
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawCircularSpectrum(x, y, rMin, rMax, spectrum) {
@@ -393,18 +410,21 @@ function batchShapeDraw(ctx, pos, angle, scale, shape, color = 'black', fill = t
   ctx.restore();
 }
 
-function drawProgressBar(x, y, w, currentTime, duration) {
-  push();
-  strokeWeight(1);
-  stroke(255);
-  line(x, y, w, y);
-
-  circle(map(currentTime, 0, duration, x, w), y, 5);
-
+function drawProgressBar(ctx, x, y, w, currentTime, duration) {
+  ctx.save();
+  ctx.strokeStyle = 'white';
+  ctx.fillStyle = 'white';
+  
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(w, y);
+  ctx.stroke();
+  
+  ctx.arc(map(currentTime, 0, duration, x, w), y, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  
   let t = `${formatTime(currentTime)} / ${formatTime(duration)}`;
-  fill(255);
-  noStroke();
-  textSize(height / 50);
-  text(t, (width - textWidth(t)) * 0.5, y + textAscent() + 5);
-  pop();
+  ctx.font = `${height / 50}px`;
+  ctx.fillText(t, (width - textWidth(t)) * 0.5, y + textAscent() + 5);
+  ctx.restore();
 }
