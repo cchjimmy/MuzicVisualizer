@@ -15,17 +15,27 @@ const energyIndicator = document.querySelector('span#energy');
 
 function setup() {
   canvas = createCanvas(400, 400);
+  canvas.canvas.style.zIndex = 2;
   ctx = canvas.drawingContext;
+  
+  const canvasRect = canvas.canvas.getBoundingClientRect();
 
-  BGLayer = createGraphics(150, 150);
-  BGctx = BGLayer.drawingContext;
+  BGLayer = document.createElement('canvas');
+  BGLayer.width = canvas.width;
+  BGLayer.height = canvas.height;
+  BGLayer.style.position = 'absolute';
+  BGLayer.style.top = `${canvasRect.y}px`;
+  BGctx = BGLayer.getContext('2d');
+  
+  document.body.appendChild(BGLayer);
 
   noStroke();
 
   fft = new p5.FFT();
 
   for (let i = 0; i < 300; i++) {
-    let spawn = p5.Vector.random2D().mult(Math.min(BGLayer.width, BGLayer.height) / 4);
+    let spawn = p5.Vector.random2D();
+    spawn.setMag(Math.min(width, height) / 4);
     particles.push({
       spawn,
       vel: createVector(0, 0),
@@ -34,7 +44,7 @@ function setup() {
     });
     angles.push(0)
     pos.push([particles[i].spawn.x, particles[i].spawn.y]);
-    let r = random(2, 5);
+    let r = random(5, 10);
     scales.push([r, r]);
   }
 
@@ -48,24 +58,29 @@ function setup() {
   video.controls = true;
 
   let inputs = document.querySelectorAll('input');
+  
+  let r = (width, height) => {
+    resizeCanvas(width, height);
+    video.width = width;
+    video.height = height;
+    BGLayer.width = width;
+    BGLayer.height = height;
+          
+    for (let i = 0; i < particles.length; i++) {
+      particles[i].spawn.setMag(Math.min(width, height) / 4);
+    }
+  }
+        
   for (let i = 0; i < inputs.length; i++) {
     let input = inputs[i];
     switch (input.id) {
       case 'visualizerWidth':
-        let f = () => {
-          resizeCanvas(input.value, height);
-          video.width = input.value;
-        }
-        f();
-        input.onchange = f;
+        r(input.value, height);
+        input.onchange = () => r(input.value, height);
         break;
       case 'visualizerHeight':
-        let f1 = () => {
-          resizeCanvas(width, input.value);
-          video.height = input.value;
-        }
-        f1();
-        input.onchange = f1;
+        r(width, input.value);
+        input.onchange = () => r(width, input.value);
         break;
       case 'backgroundColorInput':
         backgroundColor = input.value;
@@ -205,7 +220,9 @@ function draw() {
       p.vel.y = 0;
     }
   }
-
+  
+  clear();
+  
   // Background
   let c = color(backgroundColor);
   c.setAlpha(255 - amp);
@@ -222,9 +239,6 @@ function draw() {
   BGctx.fillStyle = c;
   BGctx.fillRect(0, 0, BGLayer.width, BGLayer.height);
 
-  // draw background layer
-  image(BGLayer, 0, 0, width, height);
-
   // Wave
   drawWaveform(ctx, 0, height * 0.5, width, height * 0.333, wave);
 
@@ -239,6 +253,14 @@ function draw() {
   // Progress
   if (!dragging && song.isPlaying()) currentTime = song.currentTime();
   drawProgressBar(ctx, padding, padding, width - padding, currentTime, duration);
+}
+
+function resizeGraphic(p5Graphic, width, height) {
+  p5Graphic.canvas.width = width;
+  p5Graphic.canvas.height = height;
+  p5Graphic.canvas.style.width = width + 'px';
+  p5Graphic.canvas.style.height = height + 'px';
+  return p5Graphic;
 }
 
 function stopSong(mediaRecorder, song, playButton) {
