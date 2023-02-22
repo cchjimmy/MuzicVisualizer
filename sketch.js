@@ -17,17 +17,11 @@ function setup() {
   canvas = createCanvas(400, 400);
   canvas.canvas.style.zIndex = 2;
   ctx = canvas.drawingContext;
-  
-  const canvasRect = canvas.canvas.getBoundingClientRect();
 
   BGLayer = document.createElement('canvas');
   BGLayer.width = canvas.width;
   BGLayer.height = canvas.height;
-  BGLayer.style.position = 'absolute';
-  BGLayer.style.top = `${canvasRect.y}px`;
   BGctx = BGLayer.getContext('2d');
-  
-  document.body.appendChild(BGLayer);
 
   noStroke();
 
@@ -237,6 +231,8 @@ function draw() {
 
   // Mask
   BGctx.fillRect(0, 0, BGLayer.width, BGLayer.height);
+  
+  ctx.drawImage(BGLayer, 0, 0);
 
   // Wave
   drawWaveform(ctx, 0, height * 0.5, width, height * 0.333, wave);
