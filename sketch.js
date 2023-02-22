@@ -22,7 +22,8 @@ function setup() {
   BGLayer.width = canvas.width;
   BGLayer.height = canvas.height;
   BGctx = BGLayer.getContext('2d');
-
+  BGctx.translate(BGLayer.width * 0.5, BGLayer.height * 0.5);
+  
   noStroke();
 
   fft = new p5.FFT();
@@ -59,6 +60,7 @@ function setup() {
     video.height = height;
     BGLayer.width = width;
     BGLayer.height = height;
+    BGctx.translate(BGLayer.width * 0.5, BGLayer.height * 0.5);
           
     for (let i = 0; i < particles.length; i++) {
       particles[i].spawn.setMag(Math.min(width, height) / 4);
@@ -215,22 +217,16 @@ function draw() {
     }
   }
   
-  clear();
-  
   // Background
   let c = color(backgroundColor);
   c.setAlpha(255 - amp);
   BGctx.fillStyle = c;
-  BGctx.fillRect(0, 0, BGLayer.width, BGLayer.height);
 
   // Particles
-  BGctx.save();
-  BGctx.translate(BGLayer.width * 0.5, BGLayer.height * 0.5);
   batchShapeDraw(BGctx, pos, angles, scales, shape, particlesColor)
-  BGctx.restore();
 
   // Mask
-  BGctx.fillRect(0, 0, BGLayer.width, BGLayer.height);
+  BGctx.fillRect(-BGLayer.width * 0.5, -BGLayer.height * 0.5, BGLayer.width, BGLayer.height);
   
   ctx.drawImage(BGLayer, 0, 0);
 
