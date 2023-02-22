@@ -162,17 +162,19 @@ function setup() {
     chunks.push(e.data);
   }
 
-  mediaRecorder.onstop = () => {
+  mediaRecorder.onstart = () => {
     // revoke old url
     if (videoURL) URL.revokeObjectURL(videoURL);
 
+    chunks.splice(0);
+  }
+
+  mediaRecorder.onstop = () => {
     // Convert raw data to video format
     videoURL = URL.createObjectURL(new Blob(chunks, { type: 'video/mp4' }));
 
     // Display video on video element
     video.src = videoURL;
-
-    chunks.splice(0);
   }
 
   recordBtn.onclick = () => toggleRecord(mediaRecorder, recordBtn);
