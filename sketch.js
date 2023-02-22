@@ -236,7 +236,6 @@ function draw() {
   BGctx.restore();
 
   // Mask
-  BGctx.fillStyle = c;
   BGctx.fillRect(0, 0, BGLayer.width, BGLayer.height);
 
   // Wave
@@ -253,14 +252,6 @@ function draw() {
   // Progress
   if (!dragging && song.isPlaying()) currentTime = song.currentTime();
   drawProgressBar(ctx, padding, padding, width - padding, currentTime, duration);
-}
-
-function resizeGraphic(p5Graphic, width, height) {
-  p5Graphic.canvas.width = width;
-  p5Graphic.canvas.height = height;
-  p5Graphic.canvas.style.width = width + 'px';
-  p5Graphic.canvas.style.height = height + 'px';
-  return p5Graphic;
 }
 
 function stopSong(mediaRecorder, song, playButton) {
