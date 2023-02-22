@@ -1,6 +1,6 @@
 var fft, song, lowHz, highHz, amplitudeInput, backgroundColor, particlesColor, speedMultiplier;
 const particles = [];
-const shape = [[-0.5, -0.5],[0.5,-0.5],[0.5,0.5],[-0.5,0.5]];
+const shape = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];
 const pos = [];
 const angles = [];
 const scales = [];
@@ -11,20 +11,21 @@ var duration = 0;
 var dragging = false;
 var looping = false;
 var canvas, ctx, BGLayer, BGctx;
+const energyIndicator = document.querySelector('span#energy');
 
 function setup() {
   canvas = createCanvas(400, 400);
   ctx = canvas.drawingContext;
-  
-  BGLayer = createGraphics(canvas.width, canvas.height);
+
+  BGLayer = createGraphics(150, 150);
   BGctx = BGLayer.drawingContext;
-  
+
   noStroke();
 
   fft = new p5.FFT();
 
   for (let i = 0; i < 300; i++) {
-    let spawn = p5.Vector.random2D().mult(Math.min(width, height) / 4);
+    let spawn = p5.Vector.random2D().mult(Math.min(BGLayer.width, BGLayer.height) / 4);
     particles.push({
       spawn,
       vel: createVector(0, 0),
@@ -32,9 +33,9 @@ function setup() {
       angularSpeed: random(-0.1, 0.1),
     });
     angles.push(0)
-    pos.push([particles[i].spawn.x,particles[i].spawn.y]);
-    let r = random(5,10);
-    scales.push([r,r]);
+    pos.push([particles[i].spawn.x, particles[i].spawn.y]);
+    let r = random(2, 5);
+    scales.push([r, r]);
   }
 
   // Get elements
@@ -45,32 +46,26 @@ function setup() {
   const loopButton = document.getElementById('loop');
 
   video.controls = true;
-  video.width = canvas.width;
-  video.height = canvas.height;
 
   let inputs = document.querySelectorAll('input');
   for (let i = 0; i < inputs.length; i++) {
     let input = inputs[i];
     switch (input.id) {
       case 'visualizerWidth':
-        resizeCanvas(input.value, height);
-        video.width = input.value;
-        BGLayer.width = input.value;
-        input.onchange = () => {
+        let f = () => {
           resizeCanvas(input.value, height);
           video.width = input.value;
-          BGLayer.width = input.value;
         }
+        f();
+        input.onchange = f;
         break;
       case 'visualizerHeight':
-        resizeCanvas(width, input.value);
-        video.height = input.value;
-        BGLayer.height = input.value;
-        input.onchange = () => {
+        let f1 = () => {
           resizeCanvas(width, input.value);
           video.height = input.value;
-          BGLayer.height = input.value;
         }
+        f1();
+        input.onchange = f1;
         break;
       case 'backgroundColorInput':
         backgroundColor = input.value;
@@ -153,28 +148,28 @@ function setup() {
   var chunks = [];
 
   mediaRecorder.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
+    chunks.push(e.data);
   }
-  
+
   mediaRecorder.onstop = () => {
     // revoke old url
     if (videoURL) URL.revokeObjectURL(videoURL);
-    
+
     // Convert raw data to video format
     videoURL = URL.createObjectURL(new Blob(chunks, { type: 'video/mp4' }));
 
     // Display video on video element
     video.src = videoURL;
-    
+
     chunks.splice(0);
   }
 
   recordBtn.onclick = () => toggleRecord(mediaRecorder, recordBtn);
-  
+
   playButton.onclick = () => togglePlay(mediaRecorder, currentTime, song, playButton);
-  
+
   stopButton.onclick = () => stopSong(mediaRecorder, song, playButton);
-  
+
   loopButton.onclick = () => {
     looping = !looping;
     loopButton.style.background = looping ? 'lightgreen' : 'white';
@@ -186,7 +181,7 @@ function draw() {
   const spectrum = fft.analyze();
   const wave = fft.waveform();
 
-  document.getElementById('energy').innerHTML = amp.toFixed(1);
+  energyIndicator.innerHTML = amp.toFixed(1);
 
   // Update positions
   for (let i = 0; i < particles.length; i++) {
@@ -203,7 +198,7 @@ function draw() {
       pos[i][1] += v.y;
     }
 
-    if (pos[i][0] < -width / 2 || pos[i][0] > width / 2 || pos[i][1] < -height / 2 || pos[i][1] > height / 2) {
+    if (pos[i][0] < -BGLayer.width / 2 || pos[i][0] > BGLayer.width / 2 || pos[i][1] < -BGLayer.height / 2 || pos[i][1] > BGLayer.height / 2) {
       pos[i][0] = p.spawn.x;
       pos[i][1] = p.spawn.y;
       p.vel.x = 0;
@@ -211,27 +206,24 @@ function draw() {
     }
   }
 
-  clear();
-  
   // Background
   let c = color(backgroundColor);
   c.setAlpha(255 - amp);
   BGctx.fillStyle = c;
-  BGctx.fillRect(0, 0, width, height);
-  
+  BGctx.fillRect(0, 0, BGLayer.width, BGLayer.height);
+
   // Particles
   BGctx.save();
-  BGctx.translate(width * 0.5, height * 0.5);
+  BGctx.translate(BGLayer.width * 0.5, BGLayer.height * 0.5);
   batchShapeDraw(BGctx, pos, angles, scales, shape, particlesColor)
   BGctx.restore();
-  
+
   // Mask
-  // c.setAlpha(225 - amp);
   BGctx.fillStyle = c;
-  BGctx.fillRect(0, 0, width, height);
-  
+  BGctx.fillRect(0, 0, BGLayer.width, BGLayer.height);
+
   // draw background layer
-  image(BGLayer, 0, 0);
+  image(BGLayer, 0, 0, width, height);
 
   // Wave
   drawWaveform(ctx, 0, height * 0.5, width, height * 0.333, wave);
@@ -259,7 +251,7 @@ function stopSong(mediaRecorder, song, playButton) {
 
 function togglePlay(mediaRecorder, time, song, element) {
   if (!song) return;
-  
+
   if (song.isPlaying()) {
     song.pause();
     if (mediaRecorder.state == 'recording') mediaRecorder.pause();
@@ -322,11 +314,11 @@ function handleDragEnd() {
   dragging = false;
 }
 
-function drawBarSpectrum(ctx, x, y, w, h, spectrum, bands) {
+function drawBarSpectrum(ctx, x, y, w, h, spectrum, bands, color = 'white') {
   let halfBarWidth = w / (2 * bands) * 0.5;
-  
+
   ctx.save();
-  ctx.fillStyle = 'red';
+  ctx.fillStyle = color;
   ctx.beginPath();
   for (let i = 0; i < bands; i++) {
     let index = floor(map(i, 0, bands, 0, spectrum.length));
@@ -342,9 +334,9 @@ function drawBarSpectrum(ctx, x, y, w, h, spectrum, bands) {
   ctx.restore();
 }
 
-function drawWaveform(ctx, x, y, w, h, waveform) {
+function drawWaveform(ctx, x, y, w, h, waveform, color = 'white') {
   ctx.save();
-  ctx.strokeStyle = 'white';
+  ctx.strokeStyle = color;
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(x, y);
@@ -400,7 +392,7 @@ function batchShapeDraw(ctx, pos, angle, scale, shape, color = 'black', fill = t
     for (let j = 0; j < transformed.length; j++) {
       ctx.lineTo(pos[i][0] + transformed[j][0], pos[i][1] + transformed[j][1]);
     }
-    
+
     // close shape
     ctx.lineTo(pos[i][0] + transformed[0][0], pos[i][1] + transformed[0][1]);
   }
@@ -414,15 +406,15 @@ function drawProgressBar(ctx, x, y, w, currentTime, duration) {
   ctx.save();
   ctx.strokeStyle = 'white';
   ctx.fillStyle = 'white';
-  
+
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.lineTo(w, y);
   ctx.stroke();
-  
+
   ctx.arc(map(currentTime, 0, duration, x, w), y, 2.5, 0, Math.PI * 2);
   ctx.fill();
-  
+
   let t = `${formatTime(currentTime)} / ${formatTime(duration)}`;
   ctx.font = `${height / 50}px`;
   ctx.fillText(t, (width - textWidth(t)) * 0.5, y + textAscent() + 5);
