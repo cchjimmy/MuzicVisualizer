@@ -15,7 +15,7 @@ const energyIndicator = document.querySelector('span#energy');
 
 function setup() {
   canvas = createCanvas(400, 400);
-  canvas.canvas.style.zIndex = 2;
+  // canvas.canvas.style.zIndex = 2;
   ctx = canvas.drawingContext;
 
   BGLayer = document.createElement('canvas');
